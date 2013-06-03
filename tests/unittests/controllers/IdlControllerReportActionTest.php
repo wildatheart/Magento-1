@@ -42,6 +42,11 @@ class Mollie_Mpm_IdlControllerReportActionTest extends MagentoPlugin_TestCase
 	/**
 	 * @var PHPUnit_Framework_MockObject_MockObject
 	 */
+	protected $transaction_model;
+
+	/**
+	 * @var PHPUnit_Framework_MockObject_MockObject
+	 */
 	protected $order;
 
 	const TRANSACTION_ID = "1bba1d8fdbd8103b46151634bdbe0a60";
@@ -83,9 +88,13 @@ class Mollie_Mpm_IdlControllerReportActionTest extends MagentoPlugin_TestCase
 		/*
 		 * Models.
 		 */
-		$this->payment_model = $this->getMock("Mage_Sales_Model_Order_Payment", array("setMethod", "setTransactionId", "setIsTransactionClosed", "addTransaction"));
-		$this->ideal_model   = $this->getMock("Mollie_Mpm_Model_Idl", array("updatePayment"), array(), "", FALSE);
-		$this->order_model   = $this->getMock("stdClass", array("load"));
+		$this->payment_model     = $this->getMock("Mage_Sales_Model_Order_Payment", array("setMethod", "setTransactionId", "setIsTransactionClosed", "addTransaction"));
+		$this->ideal_model       = $this->getMock("Mollie_Mpm_Model_Idl", array("updatePayment"), array(), "", FALSE);
+		$this->order_model       = $this->getMock("stdClass", array("load"));
+		$this->transaction_model = $this->getMock("stdClass", array("addObject", "save"));
+		$this->transaction_model->expects($this->any())
+			->method($this->anything())
+			->will($this->returnSelf());
 
 		/*
 		 * Mage::getModel() method
@@ -96,9 +105,10 @@ class Mollie_Mpm_IdlControllerReportActionTest extends MagentoPlugin_TestCase
 			array("mpm/idl", $this->ideal_model),
 			array("sales/order", $this->order_model),
 			array("sales/order_payment", $this->payment_model),
+			array("core/resource_transaction", $this->transaction_model),
 		)));
 
-		$this->order = $this->getMock("Mage_Sales_Model_Order", array("getData", "setPayment", "setTotalPaid", "getGrandTotal", "getAllItems", "setState", "sendNewOrderEmail", "setEmailSent", "cancel", "save"));
+		$this->order = $this->getMock("Mage_Sales_Model_Order", array("canInvoice", "getData", "setPayment", "prepareInvoice", "getGrandTotal", "getAllItems", "setState", "sendNewOrderEmail", "setEmailSent", "cancel", "save"));
 	}
 
 	protected function expectsCheckPayment($returnValue)
@@ -206,15 +216,32 @@ class Mollie_Mpm_IdlControllerReportActionTest extends MagentoPlugin_TestCase
 		/*
 		 * If successfull, add a capture transaction
 		 */
-		$this->payment_model->expects($this->once())->method("addTransaction")->with(Mage_Sales_Model_Order_Payment_Transaction::TYPE_CAPTURE);
+		$this->order->expects($this->once())
+			->method("canInvoice")
+			->will($this->returnValue(TRUE));
+
+		/** @var $mock_invoice Mage_Sales_Model_Order_Invoice|PHPUnit_Framework_MockObject_MockObject */
+		$mock_invoice = $this->getMock("Mage_Sales_Model_Order_Invoice", array("register", "capture", "getOrder", "sendEmail"));
+
+		$this->order->expects($this->once())
+			->method("prepareInvoice")
+			->will($this->returnValue($mock_invoice));
+
+		$mock_invoice->expects($this->once())
+			->method("capture")
+			->will($this->returnSelf());
+
+		$mock_invoice->expects($this->once())
+			->method("register")
+			->will($this->returnSelf());
+
+		$mock_invoice->expects($this->any())
+			->method("getOrder")
+			->will($this->returnValue($this->order));
 
 		$this->order->expects($this->once())
 			->method("setState")
 			->with(Mage_Sales_Model_Order::STATE_PROCESSING, Mage_Sales_Model_Order::STATE_PROCESSING, Mollie_Mpm_Model_Idl::PAYMENT_FLAG_PROCESSED, TRUE);
-
-		$this->order->expects($this->once())
-			->method("setTotalPaid")
-			->with(500.15);
 
 		$this->expectsMollieAmount(50015);
 		$this->expectsOrderAmount("500.15");
@@ -305,10 +332,6 @@ class Mollie_Mpm_IdlControllerReportActionTest extends MagentoPlugin_TestCase
 		$this->order->expects($this->once())
 			->method("setState")
 			->with(Mage_Sales_Model_Order::STATE_PAYMENT_REVIEW, Mage_Sales_Model_Order::STATUS_FRAUD, Mollie_Mpm_Model_Idl::PAYMENT_FLAG_FRAUD, FALSE);
-
-		$this->order->expects($this->once())
-			->method("setTotalPaid")
-			->with(1);
 
 		$this->expectOrderSaved();
 

@@ -2,28 +2,28 @@
 
 /**
  * Copyright (c) 2012-2013, Mollie B.V.
- * All rights reserved. 
- * 
- * Redistribution and use in source and binary forms, with or without 
- * modification, are permitted provided that the following conditions are met: 
- * 
- * - Redistributions of source code must retain the above copyright notice, 
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * - Redistributions in binary form must reproduce the above copyright 
+ * - Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY 
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED 
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
- * DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR ANY 
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY 
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH 
- * DAMAGE. 
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
  *
  * @category    Mollie
  * @package     Mollie_Mpm
@@ -68,10 +68,10 @@ class Mollie_Mpm_IdlController extends Mage_Core_Controller_Front_Action
 		$this->loadLayout();
 
 		$block = $this->getLayout()
-				->createBlock('Mage_Core_Block_Template')
-				->setTemplate('mollie/page/exception.phtml')
-				->setData('exception', $e)
-				->setData('orderId', $order_id);
+			->createBlock('Mage_Core_Block_Template')
+			->setTemplate('mollie/page/exception.phtml')
+			->setData('exception', $e)
+			->setData('orderId', $order_id);
 
 		$this->getLayout()->getBlock('content')->append($block);
 		$this->renderLayout();
@@ -164,9 +164,9 @@ class Mollie_Mpm_IdlController extends Mage_Core_Controller_Front_Action
 				// Creates transaction
 				/** @var $payment Mage_Sales_Model_Order_Payment */
 				$payment = Mage::getModel('sales/order_payment')
-									->setMethod('iDEAL')
-									->setTransactionId($this->_ideal->getTransactionId())
-									->setIsTransactionClosed(false);
+					->setMethod('iDEAL')
+					->setTransactionId($this->_ideal->getTransactionId())
+					->setIsTransactionClosed(false);
 
 
 				$order->setPayment($payment);
@@ -218,24 +218,19 @@ class Mollie_Mpm_IdlController extends Mage_Core_Controller_Front_Action
 				// Maakt een Order transactie aan
 				/** @var $payment Mage_Sales_Model_Order_Payment */
 				$payment = Mage::getModel('sales/order_payment')
-						->setMethod('iDEAL')
-						->setTransactionId($transactionId)
-						->setIsTransactionClosed(TRUE);
+					->setMethod('iDEAL')
+					->setTransactionId($transactionId)
+					->setIsTransactionClosed(TRUE);
 
 				$order->setPayment($payment);
 
 				if ($this->_ideal->getPaidStatus())
 				{
-					/*
-					 * Update the total amount paid, keep that in the order. We do not care if this is the correct
-					 * amount or not at this moment.
-					 */
-					$order->setTotalPaid($this->_ideal->getAmount() / 100);
-
 					if ($this->_ideal->getAmount() == $this->getAmountInCents($order))
 					{
 						// Als de vorige betaling was mislukt dan zijn de producten 'Canceled' die un-canceled worden
-						foreach ($order->getAllItems() as $item) {
+						foreach ($order->getAllItems() as $item)
+						{
 							/** @var $item Mage_Sales_Model_Order_Item */
 							$item->setQtyCanceled(0);
 							$item->save();
@@ -243,8 +238,9 @@ class Mollie_Mpm_IdlController extends Mage_Core_Controller_Front_Action
 
 						$this->_model->updatePayment($transactionId, $this->_ideal->getBankStatus(), $customer);
 
-						$payment->addTransaction(Mage_Sales_Model_Order_Payment_Transaction::TYPE_CAPTURE);
 						$order->setState(Mage_Sales_Model_Order::STATE_PROCESSING, Mage_Sales_Model_Order::STATE_PROCESSING, $this->__(Mollie_Mpm_Model_Idl::PAYMENT_FLAG_PROCESSED), TRUE);
+
+						$this->_saveInvoice($order);
 
 						/*
 						 * Send an email to the customer.
@@ -273,6 +269,34 @@ class Mollie_Mpm_IdlController extends Mage_Core_Controller_Front_Action
 			Mage::log($e);
 			$this->_showException($e->getMessage());
 		}
+	}
+
+	/**
+	 * Save an invoice for the order. This will trigger thw whole
+	 *
+	 * @param Mage_Sales_Model_Order $order
+	 * @param                        $mail
+	 *
+	 * @return bool
+	 */
+	protected function _saveInvoice(Mage_Sales_Model_Order $order) {
+
+		if (!$order->canInvoice())
+		{
+			return FALSE;
+		}
+
+		$invoice = $order->prepareInvoice();
+		$invoice->register()->capture();
+
+		Mage::getModel('core/resource_transaction')
+			->addObject($invoice)
+			->addObject($invoice->getOrder())
+			->save();
+
+		$invoice->sendEmail();
+
+		return TRUE;
 	}
 
 	/**
