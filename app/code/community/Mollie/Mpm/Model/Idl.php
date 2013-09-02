@@ -68,6 +68,7 @@ class Mollie_Mpm_Model_Idl extends Mage_Payment_Model_Method_Abstract
 	protected $_paymentMethod			= 'iDEAL';
 	protected $_isGateway				= TRUE;
 	protected $_canAuthorize			= TRUE;
+	protected $_canCapture				= TRUE;
 	protected $_canUseCheckout			= TRUE;
 	protected $_canUseInternal			= FALSE;
 	protected $_canUseForMultishipping	= TRUE;
