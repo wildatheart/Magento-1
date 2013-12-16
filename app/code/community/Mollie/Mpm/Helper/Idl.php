@@ -30,7 +30,7 @@
  * @category    Mollie
  * @package     Mollie_Mpm
  * @author      Mollie B.V. (info@mollie.nl)
- * @version     v3.14.0
+ * @version     v3.15.0
  * @copyright   Copyright (c) 2012-2013 Mollie B.V. (https://www.mollie.nl)
  * @license     http://www.opensource.org/licenses/bsd-license.php  Berkeley Software Distribution License (BSD-License 2)
  * 
@@ -112,6 +112,7 @@ class Mollie_Mpm_Helper_Idl
 
 		if (!$banks_object or $this->_XMlisError($banks_object))
 		{
+			$this->error_message = "Geen XML of XML met API fout ontvangen van Mollie";
 			return false;
 		}
 
@@ -360,6 +361,12 @@ class Mollie_Mpm_Helper_Idl
 			$body = curl_exec($ch);
 		}
 
+		if (curl_error($ch))
+		{
+			$this->error_message = "Fout bij communiceren met Mollie: " . curl_error($ch);
+			$this->error_code    = curl_errno($ch);
+		}
+
 		curl_close($ch);
 
 		return $body;
@@ -477,9 +484,9 @@ class Mollie_Mpm_Helper_Idl
 		return $this->amount;
 	}
 
-	public function setDescription($description)
+	public function setDescription ($description)
 	{
-		$description = substr($description, 0, 29);
+		$description = function_exists("mb_substr") ? mb_substr($description, 0, 29) : substr($description, 0, 29);
 
 		return ($this->description = $description);
 	}

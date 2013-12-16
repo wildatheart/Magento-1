@@ -2,6 +2,10 @@
 
 # Changelog #
 
+## Wijzigingen in versie 3.15 ##
++ Verbeter communicatie met Mollie bij bepaalde SSL fouten.
++ Toon foutmelding tijdens afrekenen wanneer de bankenlijst niet opgehaald kan worden.
+
 ## Wijzigingen in versie 3.14 ##
 + Problemen opgelost met upgraden vanaf versie 3.12.
 + Toon juiste meldingen wanneer klant terugkomt op de website na een mislukte iDEAL betaling.
@@ -10,7 +14,7 @@
 + Performance verbeterd voor webshops met grote hoeveelheden betalingen.
 + iDEAL betalingen nu ook mogelijk bij factuuradressen buiten Nederland.
 + Controleer compatibiliteit met geinstalleerde Magento versie.
-+ Vanaf deze versie wordt de kwaliteit van de module bewaakt door de open source continuous integration server [Travis CI](https://travis-ci.org/mollienl/magento)
++ Vanaf deze versie wordt de kwaliteit van de module bewaakt door de open source continuous integration server [Travis CI](https://travis-ci.org/mollie/magento)
 
 ## Wijzigingen in versie 3.12 ##
 + Probleem opgelost waarbij in layouts met twee kolommen op de categoriepagina de rechter kolom verdween.
